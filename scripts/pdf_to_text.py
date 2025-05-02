@@ -68,42 +68,25 @@ class PDFTextExtractor:
             file.write(text + "\n")
     def append_raw_to_processed_data(self):
         """
-        Reads text from the raw file and appends it to a JSON file.
-
-        Parameters:
-            None
+        Reads text from the raw file and appends it as a single JSON line to a .jsonl file,
+        and also appends the raw text to the processed .txt file.
         """
-        # Read content from the raw file
         with open(self.raw_file_path, "r", encoding="utf-8") as raw_file:
-            content = raw_file.read()
+            content = raw_file.read().strip()
 
-        # Calculate character and word count
         char_count = len(content)
         word_count = len(content.split())
 
-        # Prepare the data to append
-        json_to_append = {
+        record = {
             "file_name": os.path.basename(self.pdf_path),
             "char_count": char_count,
             "word_count": word_count,
-            "text": content.strip()
+            "text": content
         }
 
-        # Check if JSON file exists, load or initialize
-        if os.path.exists(self.processed_json_path):
-            with open(self.processed_json_path, "r", encoding="utf-8") as json_file:
-                existing_data = json.load(json_file)
-        else:
-            existing_data = []
+        with open(self.processed_json_path, "a", encoding="utf-8") as jsonl_file:
+            jsonl_file.write(json.dumps(record, ensure_ascii=False) + "\n")
 
-        # Append the new data
-        existing_data.append(json_to_append)
-
-        # Save back to the JSON file
-        with open(self.processed_json_path, "w", encoding="utf-8") as json_file:
-            json.dump(existing_data, json_file, ensure_ascii=False, indent=4)
-
-        with open(self.raw_file_path, "r", encoding="utf-8") as raw_file:
-            content = raw_file.read()        
+        # 4) Processed .txt dosyasına da ekle
         with open(self.processed_txt_path, "a", encoding="utf-8") as processed_file:
             processed_file.write(content + "\n")
