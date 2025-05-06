@@ -34,7 +34,7 @@ The `scripts` folder contains:
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/Kurdish-Dataset.git
+git clone https://github.com/HappyHackingSpace/Kurdish-Dataset.git
 cd Kurdish-Dataset
 ```
 
