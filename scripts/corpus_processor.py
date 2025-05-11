@@ -38,10 +38,10 @@ class CorpusProcessor:
         login(token=self.hf_token)
 
         # Process immediately
-        self.cleaned_text = self._extract_clean_text()
+        self.cleaned_text = self.extract_text_only()
         self._save_raw_text(self.cleaned_text)
 
-    def _extract_clean_text(self):
+    def extract_text_only(self):
         """Extract and clean text from the PDF."""
         text = ""
         page_range = range(self.start_page - 1, self.end_page) if self.start_page and self.end_page else None

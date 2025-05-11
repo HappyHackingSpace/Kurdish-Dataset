@@ -1,0 +1,18 @@
+{% extends 'submissions/base.html' %}
+{% block title %}Request Detail{% endblock %}
+{% block content %}
+  <h1>Request Detail</h1>
+  <p><strong>Name:</strong> {{ submission.name }}</p>
+  <p><strong>Email:</strong> {{ submission.email }}</p>
+  <p><strong>Subject:</strong> {{ submission.subject }}</p>
+  <form method="post">
+    {% csrf_token %}
+    <p><strong>Text:</strong></p>
+    <textarea name="edited_text" rows="20" cols="100">{{ submission.edited_text }}</textarea>
+    <br><br>
+    <button type="submit" name="action" value="accept">Accept</button>
+    <button type="submit" name="action" value="reject">Reject</button>
+  </form>
+  <br>
+  <a href="{% url 'submissions:admin_request_list' %}">&larr; Back</a>
+{% endblock %}

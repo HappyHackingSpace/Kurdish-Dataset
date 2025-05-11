@@ -1,0 +1,16 @@
+{% extends 'submissions/base.html' %}
+{% block title %}General Requests{% endblock %}
+{% block content %}
+  <h1>Requests</h1>
+  <ul>
+    {% for sub in pending %}
+      <li>
+        <a href="{% url 'submissions:admin_request_detail' sub.pk %}">
+          {{ sub.name }} - {{ sub.subject }} ({{ sub.created_at|date:'Y-m-d H:i' }})
+        </a>
+      </li>
+    {% empty %}
+      <li>No pending requests.</li>
+    {% endfor %}
+  </ul>
+{% endblock %}
