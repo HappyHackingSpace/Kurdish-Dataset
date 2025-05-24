@@ -121,8 +121,13 @@ def push_to_huggingface(submission):
         char_count = len(text)
         word_count = len(text.split())
 
-        # Format text with newlines after each sentence
-        formatted_text = text.replace('. ', '.\n').replace('! ', '!\n').replace('? ', '?\n')
+        # Format only the new text: remove unnecessary line breaks and add newlines only after sentences
+        # First, replace all newlines with spaces
+        new_text = ' '.join(text.split())
+        # Then add newlines after sentence endings
+        formatted_new_text = new_text.replace('. ', '.\n').replace('! ', '!\n').replace('? ', '?\n')
+        # Remove any trailing newline
+        formatted_new_text = formatted_new_text.rstrip('\n')
 
         # Prepare JSON data with the required structure
         json_data = {
@@ -133,7 +138,7 @@ def push_to_huggingface(submission):
             "created_at": submission.created_at.strftime("%Y-%m-%d"),
             "char_count": char_count,
             "word_count": word_count,
-            "text": text
+            "text": text  # Keep original text in JSON
         }
 
         # Handle JSON file
@@ -185,9 +190,9 @@ def push_to_huggingface(submission):
 
         # Combine existing and new text
         if existing_text:
-            new_text = existing_text + "\n" + formatted_text
+            new_text = existing_text + "\n" + formatted_new_text
         else:
-            new_text = formatted_text
+            new_text = formatted_new_text
 
         # Create temporary file for combined TXT
         temp_txt = Path("temp_kurmanji.txt")
@@ -218,14 +223,14 @@ def push_to_huggingface(submission):
 def admin_request_detail(request, pk):
     """Handle admin review of individual submissions."""
     submission = get_object_or_404(Submission, pk=pk)
-    
+
     if request.method == 'POST':
         action = request.POST.get('action')
         edited_text = request.POST.get('edited_text', '').strip()
         
         # Update edited text
         submission.edited_text = edited_text
-        
+
         if action == 'accept':
             submission.status = 'accepted'
             # Push to Hugging Face
@@ -239,7 +244,7 @@ def admin_request_detail(request, pk):
         
         submission.save()
         return redirect('submissions:admin_request_list')
-    
+
     return render(request, 'submissions/admin_request_detail.html', {'submission': submission})
 
 def upload_submission(request):
