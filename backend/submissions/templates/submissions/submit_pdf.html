@@ -1,6 +1,17 @@
 {% extends 'submissions/base.html' %}
 {% block content %}
-  <h1>Upload Form</h1>
+  <h1>Document Upload</h1>
+  
+  {% if messages %}
+    <div class="messages">
+      {% for message in messages %}
+        <div class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %}">
+          {{ message }}
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+  
   <form method="post" enctype="multipart/form-data">
     {% csrf_token %}
     {{ form.as_p }}

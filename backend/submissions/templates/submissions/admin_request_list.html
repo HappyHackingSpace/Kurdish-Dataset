@@ -1,16 +1,142 @@
 {% extends 'submissions/base.html' %}
-{% block title %}General Requests{% endblock %}
+
 {% block content %}
-  <h1>Requests</h1>
-  <ul>
-    {% for sub in pending %}
-      <li>
-        <a href="{% url 'submissions:admin_request_detail' sub.pk %}">
-          {{ sub.name }} - {{ sub.subject }} ({{ sub.created_at|date:'Y-m-d H:i' }})
-        </a>
-      </li>
-    {% empty %}
-      <li>No pending requests.</li>
-    {% endfor %}
-  </ul>
+<div class="container">
+    <h2>Admin Panel</h2>
+    
+    <ul class="nav nav-tabs mb-4">
+        <li class="nav-item">
+            <a class="nav-link active" href="#pending" data-bs-toggle="tab">Pending Requests</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="#accepted" data-bs-toggle="tab">Accepted</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="#rejected" data-bs-toggle="tab">Rejected</a>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+        <div class="tab-pane fade show active" id="pending">
+            {% if pending %}
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Subject</th>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Publication Date</th>
+                                <th>Text Type</th>
+                                <th>Created At</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for submission in pending %}
+                            <tr>
+                                <td>{{ submission.subject }}</td>
+                                <td>{{ submission.name }}</td>
+                                <td>{{ submission.email }}</td>
+                                <td>{{ submission.publication_date }}</td>
+                                <td>{{ submission.get_text_type_display }}</td>
+                                <td>{{ submission.created_at|date:"d-m-Y H:i" }}</td>
+                                <td>
+                                    <a href="{% url 'submissions:admin_request_detail' submission.id %}" class="btn btn-primary btn-sm">Review</a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="alert alert-info">
+                    No pending requests.
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="tab-pane fade" id="accepted">
+            {% with accepted=submissions.accepted %}
+                {% if accepted %}
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Subject</th>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Publication Date</th>
+                                    <th>Text Type</th>
+                                    <th>Created At</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for submission in accepted %}
+                                <tr>
+                                    <td>{{ submission.subject }}</td>
+                                    <td>{{ submission.name }}</td>
+                                    <td>{{ submission.email }}</td>
+                                    <td>{{ submission.publication_date }}</td>
+                                    <td>{{ submission.get_text_type_display }}</td>
+                                    <td>{{ submission.created_at|date:"d-m-Y H:i" }}</td>
+                                    <td>
+                                        <a href="{% url 'submissions:admin_request_detail' submission.id %}" class="btn btn-info btn-sm">View</a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="alert alert-info">
+                        No accepted submissions.
+                    </div>
+                {% endif %}
+            {% endwith %}
+        </div>
+
+        <div class="tab-pane fade" id="rejected">
+            {% with rejected=submissions.rejected %}
+                {% if rejected %}
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Subject</th>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Publication Date</th>
+                                    <th>Text Type</th>
+                                    <th>Created At</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for submission in rejected %}
+                                <tr>
+                                    <td>{{ submission.subject }}</td>
+                                    <td>{{ submission.name }}</td>
+                                    <td>{{ submission.email }}</td>
+                                    <td>{{ submission.publication_date }}</td>
+                                    <td>{{ submission.get_text_type_display }}</td>
+                                    <td>{{ submission.created_at|date:"d-m-Y H:i" }}</td>
+                                    <td>
+                                        <a href="{% url 'submissions:admin_request_detail' submission.id %}" class="btn btn-info btn-sm">View</a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="alert alert-info">
+                        No rejected submissions.
+                    </div>
+                {% endif %}
+            {% endwith %}
+        </div>
+    </div>
+</div>
 {% endblock %}

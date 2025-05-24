@@ -2,9 +2,16 @@
 {% block title %}Request Detail{% endblock %}
 {% block content %}
   <h1>Request Detail</h1>
-  <p><strong>Name:</strong> {{ submission.name }}</p>
-  <p><strong>Email:</strong> {{ submission.email }}</p>
-  <p><strong>Subject:</strong> {{ submission.subject }}</p>
+  <div class="submission-details">
+    <p><strong>Name:</strong> {{ submission.name }}</p>
+    <p><strong>Email:</strong> {{ submission.email }}</p>
+    <p><strong>Subject:</strong> {{ submission.subject }}</p>
+    <p><strong>Publication Date:</strong> {{ submission.publication_date }}</p>
+    <p><strong>Author / Source:</strong> {{ submission.author_source }}</p>
+    <p><strong>Text Type:</strong> {{ submission.text_type }}</p>
+    <p><strong>Created At:</strong> {{ submission.created_at|date:"d.m.Y H:i" }}</p>
+  </div>
+
   <form method="post">
     {% csrf_token %}
     <p><strong>Text:</strong></p>

@@ -1,6 +1,6 @@
 {% extends 'submissions/base.html' %}
 {% block content %}
-  <h1>Edit PDF Text</h1>
+  <h1>Edit Document Text</h1>
   <form method="post">
     {% csrf_token %}
     <textarea name="edited_text" rows="25" cols="100">{{ submission.extracted_text }}</textarea><br>
