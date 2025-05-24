@@ -185,7 +185,7 @@ def push_to_huggingface(submission):
 
         # Combine existing and new text
         if existing_text:
-            new_text = existing_text + "\n\n" + formatted_text
+            new_text = existing_text + "\n" + formatted_text
         else:
             new_text = formatted_text
 
