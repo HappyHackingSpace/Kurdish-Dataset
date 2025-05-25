@@ -1,5 +1,11 @@
 from django.db import models
 from django.utils import timezone
+from supabase import create_client
+#from django.conf import settings
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 class Submission(models.Model):
     STATUS_PENDING = 'pending'
@@ -68,3 +74,69 @@ class Submission(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+
+class SupabaseSubmission:
+    def __init__(self):
+        self.supabase = create_client(
+            os.getenv("SUPABASE_URL"),
+            os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+        )
+        self.table = self.supabase.table('submission_logs')
+
+    def create(self, data):
+        """
+        Create a new submission in Supabase
+        """
+        try:
+            response = self.table.insert(data).execute()
+            return response.data[0] if response.data else None
+        except Exception as e:
+            print(f"Error creating submission: {str(e)}")
+            return None
+
+    def get(self, submission_id):
+        """
+        Get a submission by ID
+        """
+        try:
+            response = self.table.select("*").eq('id', submission_id).execute()
+            return response.data[0] if response.data else None
+        except Exception as e:
+            print(f"Error getting submission: {str(e)}")
+            return None
+
+    def update(self, submission_id, data):
+        """
+        Update a submission
+        """
+        try:
+            response = self.table.update(data).eq('id', submission_id).execute()
+            return response.data[0] if response.data else None
+        except Exception as e:
+            print(f"Error updating submission: {str(e)}")
+            return None
+
+    def delete(self, submission_id):
+        """
+        Delete a submission
+        """
+        try:
+            response = self.table.delete().eq('id', submission_id).execute()
+            return True
+        except Exception as e:
+            print(f"Error deleting submission: {str(e)}")
+            return False
+
+    def list(self, status=None):
+        """
+        List all submissions, optionally filtered by status
+        """
+        try:
+            query = self.table.select("*")
+            if status:
+                query = query.eq('status', status)
+            response = query.execute()
+            return response.data
+        except Exception as e:
+            print(f"Error listing submissions: {str(e)}")
+            return []

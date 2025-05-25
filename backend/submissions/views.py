@@ -5,13 +5,14 @@ from django.contrib.auth.decorators import login_required
 from django.conf import settings
 from django.contrib import messages
 from .forms import SubmissionForm
-from .models import Submission
+from .models import SupabaseSubmission
 from .pdf_processor import extract_text_from_pdf
 import json
 from huggingface_hub import HfApi
 import requests
 from pathlib import Path
 from huggingface_hub import hf_hub_download
+import tempfile
 
 logger = logging.getLogger(__name__)
 
@@ -31,40 +32,55 @@ def submit_pdf(request):
                 pdf_file = request.FILES.get('pdf_file')
                 if not pdf_file:
                     raise ValueError("No PDF file provided")
+
+                # Read PDF content into memory
+                pdf_content = pdf_file.read()
+
+                # Upload PDF to Supabase Storage first
+                supabase = SupabaseSubmission()
+                bucket_path = f"pdfs/{pdf_file.name}"
                 
-                # Save PDF file
-                pdf_path = os.path.join(settings.MEDIA_ROOT, 'pdfs', pdf_file.name)
-                os.makedirs(os.path.dirname(pdf_path), exist_ok=True)
+                # Upload to Supabase Storage using the content
+                storage_response = supabase.supabase.storage.from_("data_files").upload(
+                    path=bucket_path,
+                    file=pdf_content,
+                    file_options={"cache-control": "3600", "upsert": "true"}
+                )
+
+                # Get public URL for the uploaded file
+                pdf_url = supabase.supabase.storage.from_("data_files").get_public_url(bucket_path)
                 
-                with open(pdf_path, 'wb+') as destination:
-                    for chunk in pdf_file.chunks():
-                        destination.write(chunk)
-                
-                # Extract text from PDF
+                # Extract text from PDF content
                 try:
-                    extracted_text = extract_text_from_pdf(pdf_path)
+                    extracted_text = extract_text_from_pdf(pdf_content)
                     if not extracted_text:
                         logger.warning(f"No text extracted from PDF: {pdf_file.name}")
                         extracted_text = "No text could be extracted from the PDF."
                 except Exception as e:
                     logger.error(f"Error extracting text from PDF: {str(e)}")
                     extracted_text = f"Error extracting text: {str(e)}"
+
+                # Create submission in Supabase
+                supabase_data = {
+                    "name": data['name'],
+                    "email": data['email'],
+                    "subject": data['subject'],
+                    "publication_date": data['publication_date'],
+                    "author_source": data['author_source'],
+                    "text_type": data['text_type'],
+                    "pdf_file_url": pdf_url,
+                    "extracted_text": extracted_text,
+                    "edited_text": extracted_text,
+                    "status": "pending"
+                }
+
+                supabase_result = supabase.create(supabase_data)
                 
-                # Create submission
-                submission = Submission.objects.create(
-                    name=data['name'],
-                    email=data['email'],
-                    subject=data['subject'],
-                    publication_date=data['publication_date'],
-                    author_source=data['author_source'],
-                    text_type=data['text_type'],
-                    pdf_file=pdf_file,
-                    extracted_text=extracted_text,
-                    edited_text=extracted_text  # Initially same as extracted text
-                )
-                
+                if not supabase_result:
+                    raise Exception("Failed to create submission in Supabase")
+
                 messages.success(request, 'Submission uploaded successfully!')
-                return redirect('submissions:preview_text', pk=submission.id)
+                return redirect('submissions:preview_text', pk=supabase_result['id'])
                 
             except Exception as e:
                 logger.error(f"Error processing submission: {str(e)}")
@@ -80,12 +96,26 @@ def preview_text(request, pk):
     Display extracted text for preview and editing.
     Saves edited text and redirects to thank you page.
     """
-    submission = get_object_or_404(Submission, pk=pk)
+    supabase = SupabaseSubmission()
+    submission = supabase.get(pk)
+    
+    if not submission:
+        messages.error(request, 'Submission not found')
+        return redirect('submissions:submit_pdf')
     
     if request.method == 'POST':
         edited_text = request.POST.get('edited_text', '').strip()
-        submission.edited_text = edited_text
-        submission.save()
+        
+        # Update Supabase
+        supabase_data = {
+            "edited_text": edited_text
+        }
+        supabase_result = supabase.update(pk, supabase_data)
+        
+        if not supabase_result:
+            messages.error(request, 'Failed to update submission')
+            return render(request, 'submissions/preview_text.html', {'submission': submission})
+
         return redirect('submissions:thanks')
         
     return render(request, 'submissions/preview_text.html', {'submission': submission})
@@ -97,19 +127,61 @@ def thanks(request):
 @login_required
 def admin_request_list(request):
     """Display list of all submissions for admin review."""
+    supabase = SupabaseSubmission()
+    status = request.GET.get('status', 'pending')
+    
     submissions = {
-        'pending': Submission.objects.filter(status='pending').order_by('-created_at'),
-        'accepted': Submission.objects.filter(status='accepted').order_by('-created_at'),
-        'rejected': Submission.objects.filter(status='rejected').order_by('-created_at')
+        'pending': supabase.list(status='pending'),
+        'accepted': supabase.list(status='accepted'),
+        'rejected': supabase.list(status='rejected')
     }
+    
     return render(request, 'submissions/admin_request_list.html', {
-        'pending': submissions['pending'],
-        'submissions': submissions
+        'submissions': submissions,
+        'status': status
     })
+
+@login_required
+def admin_request_detail(request, pk):
+    """Handle admin review of individual submissions."""
+    supabase = SupabaseSubmission()
+    submission = supabase.get(pk)
+
+    if not submission:
+        messages.error(request, 'Submission not found')
+        return redirect('submissions:admin_request_list')
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        edited_text = request.POST.get('edited_text', '').strip()
+        
+        # Update Supabase
+        supabase_data = {
+            "edited_text": edited_text,
+            "status": action
+        }
+        supabase_result = supabase.update(pk, supabase_data)
+        
+        if not supabase_result:
+            messages.error(request, 'Failed to update submission')
+            return render(request, 'submissions/admin_request_detail.html', {'submission': submission})
+
+        if action == 'accept':
+            # Push to Hugging Face
+            if push_to_huggingface(submission):
+                messages.success(request, 'Request accepted and pushed to Hugging Face!')
+            else:
+                messages.warning(request, 'Request accepted but failed to push to Hugging Face.')
+        elif action == 'reject':
+            messages.info(request, 'Request rejected.')
+
+        return redirect('submissions:admin_request_list')
+
+    return render(request, 'submissions/admin_request_detail.html', {'submission': submission})
 
 def push_to_huggingface(submission):
     """
-    Push accepted submission to Hugging Face repository
+    Push accepted submission to Hugging Face repository using in-memory data
     """
     try:
         # Initialize Hugging Face API
@@ -117,40 +189,39 @@ def push_to_huggingface(submission):
         repo_id = "happyhackingspace/kurdish-kurmanji-corpus"
 
         # Calculate character and word count
-        text = submission.edited_text.strip()
+        text = submission['edited_text'].strip()
         char_count = len(text)
         word_count = len(text.split())
 
         # Format only the new text: remove unnecessary line breaks and add newlines only after sentences
-        # First, replace all newlines with spaces
         new_text = ' '.join(text.split())
-        # Then add newlines after sentence endings
         formatted_new_text = new_text.replace('. ', '.\n').replace('! ', '!\n').replace('? ', '?\n')
-        # Remove any trailing newline
         formatted_new_text = formatted_new_text.rstrip('\n')
 
-        # Prepare JSON data with the required structure
+        # Prepare JSON data
         json_data = {
-            "document_subject": submission.subject,
-            "text_type": submission.get_text_type_display(),
-            "author_source": submission.author_source,
-            "publication_date": submission.publication_date,
-            "created_at": submission.created_at.strftime("%Y-%m-%d"),
+            "document_subject": submission['subject'],
+            "text_type": submission['text_type'],
+            "author_source": submission['author_source'],
+            "publication_date": submission['publication_date'],
+            "created_at": submission['created_at'],
             "char_count": char_count,
             "word_count": word_count,
-            "text": text  # Keep original text in JSON
+            "text": text
         }
 
         # Handle JSON file
         try:
-            # Try to download existing JSON file
-            existing_json_path = hf_hub_download(
+            # Download existing JSON content
+            existing_json_content = api.hf_hub_download(
                 repo_id=repo_id,
                 filename="kurmanji.json",
                 repo_type="dataset",
                 token=settings.HUGGINGFACE_TOKEN
             )
-            with open(existing_json_path, "r", encoding="utf-8") as f:
+            
+            # Read existing content
+            with open(existing_json_content, "r", encoding="utf-8") as f:
                 existing_lines = [line.strip() for line in f if line.strip()]
         except Exception as e:
             logger.warning(f"Could not read existing JSON file: {str(e)}")
@@ -159,15 +230,12 @@ def push_to_huggingface(submission):
         # Add new JSON data
         existing_lines.append(json.dumps(json_data, ensure_ascii=False))
         
-        # Create temporary file for combined JSON
-        temp_json = Path("temp_kurmanji.json")
-        with temp_json.open("w", encoding="utf-8") as f:
-            for line in existing_lines:
-                f.write(line + "\n")
+        # Create in-memory JSON content
+        json_content = "\n".join(existing_lines).encode('utf-8')
 
-        # Upload combined JSON file
+        # Upload JSON content
         api.upload_file(
-            path_or_fileobj=temp_json,
+            path_or_fileobj=json_content,
             path_in_repo="kurmanji.json",
             repo_id=repo_id,
             repo_type="dataset"
@@ -175,14 +243,16 @@ def push_to_huggingface(submission):
 
         # Handle TXT file
         try:
-            # Try to download existing TXT file
-            existing_txt_path = hf_hub_download(
+            # Download existing TXT content
+            existing_txt_content = api.hf_hub_download(
                 repo_id=repo_id,
                 filename="kurmanji.txt",
                 repo_type="dataset",
                 token=settings.HUGGINGFACE_TOKEN
             )
-            with open(existing_txt_path, "r", encoding="utf-8") as f:
+            
+            # Read existing content
+            with open(existing_txt_content, "r", encoding="utf-8") as f:
                 existing_text = f.read().strip()
         except Exception as e:
             logger.warning(f"Could not read existing TXT file: {str(e)}")
@@ -194,58 +264,19 @@ def push_to_huggingface(submission):
         else:
             new_text = formatted_new_text
 
-        # Create temporary file for combined TXT
-        temp_txt = Path("temp_kurmanji.txt")
-        with temp_txt.open("w", encoding="utf-8") as f:
-            f.write(new_text)
-
-        # Upload combined TXT file
+        # Upload TXT content
         api.upload_file(
-            path_or_fileobj=temp_txt,
+            path_or_fileobj=new_text.encode('utf-8'),
             path_in_repo="kurmanji.txt",
             repo_id=repo_id,
             repo_type="dataset"
         )
 
-        # Clean up temporary files
-        if temp_json.exists():
-            os.remove(temp_json)
-        if temp_txt.exists():
-            os.remove(temp_txt)
-
-        logger.info(f"Successfully pushed submission {submission.id} to Hugging Face")
+        logger.info(f"Successfully pushed submission {submission['id']} to Hugging Face")
         return True
     except Exception as e:
         logger.error(f"Error pushing to Hugging Face: {str(e)}")
         return False
-
-@login_required
-def admin_request_detail(request, pk):
-    """Handle admin review of individual submissions."""
-    submission = get_object_or_404(Submission, pk=pk)
-
-    if request.method == 'POST':
-        action = request.POST.get('action')
-        edited_text = request.POST.get('edited_text', '').strip()
-        
-        # Update edited text
-        submission.edited_text = edited_text
-
-        if action == 'accept':
-            submission.status = 'accepted'
-            # Push to Hugging Face
-            if push_to_huggingface(submission):
-                messages.success(request, 'Request accepted and pushed to Hugging Face!')
-            else:
-                messages.warning(request, 'Request accepted but failed to push to Hugging Face.')
-        elif action == 'reject':
-            submission.status = 'rejected'
-            messages.info(request, 'Request rejected.')
-        
-        submission.save()
-        return redirect('submissions:admin_request_list')
-
-    return render(request, 'submissions/admin_request_detail.html', {'submission': submission})
 
 def upload_submission(request):
     if request.method == 'POST':
@@ -293,17 +324,7 @@ def upload_submission(request):
                 
                 # Save to Supabase
                 try:
-                    submission = Submission.objects.create(
-                        name=data['name'],
-                        email=data['email'],
-                        subject=data['subject'],
-                        publication_date=data['publication_date'],
-                        author_source=data['author_source'],
-                        text_type=data['text_type'],
-                        pdf_file=pdf_file,
-                        extracted_text=extracted_text,
-                        edited_text=extracted_text  # Initially same as extracted text
-                    )
+                    submission = SupabaseSubmission()
                     messages.success(request, 'Submission uploaded successfully!')
                     return redirect('submission_success')
                 except Exception as e:
@@ -325,34 +346,54 @@ def submission_success(request):
 
 @login_required
 def admin_submissions(request):
-    submissions = Submission.objects.filter(status='pending').order_by('-created_at')
+    submissions = SupabaseSubmission().list(status='pending').order_by('-created_at')
     return render(request, 'submissions/admin.html', {'submissions': submissions})
 
 @login_required
 def edit_submission(request, pk):
-    submission = get_object_or_404(Submission, pk=pk)
+    supabase = SupabaseSubmission()
+    submission = supabase.get(pk)
+    
+    if not submission:
+        messages.error(request, 'Submission not found')
+        return redirect('submissions:admin_submissions')
     
     if request.method == 'POST':
         edited_text = request.POST.get('edited_text')
         if edited_text:
-            submission.edited_text = edited_text
-            submission.save()
+            supabase_data = {
+                "edited_text": edited_text
+            }
+            supabase_result = supabase.update(pk, supabase_data)
+            
+            if not supabase_result:
+                messages.error(request, 'Failed to update submission')
+                return render(request, 'submissions/edit.html', {'submission': submission})
+            
             messages.success(request, 'Submission updated successfully!')
-        return redirect('submissions:admin_submissions')
+            return redirect('submissions:admin_submissions')
     
     return render(request, 'submissions/edit.html', {'submission': submission})
 
 @login_required
 def delete_submission(request, pk):
-    submission = get_object_or_404(Submission, pk=pk)
+    supabase = SupabaseSubmission()
+    submission = supabase.get(pk)
+    
+    if not submission:
+        messages.error(request, 'Submission not found')
+        return redirect('submissions:admin_submissions')
     
     # Delete PDF file
-    if submission.pdf_file:
+    if submission['pdf_file_url']:
         try:
-            os.remove(submission.pdf_file.path)
-        except:
-            pass  # Ignore file deletion errors
+            # Extract file name from URL
+            file_name = submission['pdf_file_url'].split('/')[-1]
+            # Delete from Supabase Storage
+            supabase.supabase.storage.from_("data_files").remove(f"pdfs/{file_name}")
+        except Exception as e:
+            logger.error(f"Error deleting file from Supabase Storage: {str(e)}")
     
-    submission.delete()
+    supabase.delete(pk)
     messages.success(request, 'Submission deleted successfully!')
     return redirect('submissions:admin_submissions')
