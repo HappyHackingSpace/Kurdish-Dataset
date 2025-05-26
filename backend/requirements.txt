@@ -19,6 +19,7 @@ dotenv==0.9.9
 filelock==3.18.0
 frozenlist==1.6.0
 fsspec==2023.10.0
+gunicorn==21.2.0
 idna==3.10
 multidict==6.4.3
 multiprocess==0.70.15
@@ -35,7 +36,7 @@ PyYAML==6.0.2
 requests==2.32.3
 six==1.17.0
 sqlparse==0.5.3
-supabase==2.15.1
+supabase==2.15.2
 httpx<0.29,>=0.26
 gotrue<3.0.0,>=2.11.0
 postgrest<1.1,>0.19
@@ -44,5 +45,6 @@ tqdm==4.67.1
 typing_extensions==4.13.2
 tzdata==2025.2
 urllib3==2.4.0
+whitenoise==6.6.0
 xxhash==3.5.0
 yarl==1.20.0 
