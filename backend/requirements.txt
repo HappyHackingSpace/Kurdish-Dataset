@@ -47,4 +47,5 @@ tzdata==2025.2
 urllib3==2.4.0
 whitenoise==6.6.0
 xxhash==3.5.0
-yarl==1.20.0 
+yarl==1.20.0
+PyPDF2==3.0.1
