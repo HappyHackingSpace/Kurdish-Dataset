@@ -36,6 +36,10 @@ requests==2.32.3
 six==1.17.0
 sqlparse==0.5.3
 supabase==2.15.1
+httpx<0.29,>=0.26
+gotrue<3.0.0,>=2.11.0
+postgrest<1.1,>0.19
+realtime<2.5.0,>=2.4.0
 tqdm==4.67.1
 typing_extensions==4.13.2
 tzdata==2025.2
