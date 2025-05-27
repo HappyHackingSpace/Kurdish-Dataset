@@ -14,6 +14,13 @@
   
   <form method="post" enctype="multipart/form-data">
     {% csrf_token %}
+    <div class="mb-3">
+      <label for="pdf_file" class="form-label">PDF File</label>
+      <input type="file" class="form-control" id="pdf_file" name="pdf_file" accept=".pdf" required>
+      <div class="mt-2" style="color: #dc3545; font-size: 0.9rem;">
+        Currently, we only accept PDF format files for processing.
+      </div>
+    </div>
     {{ form.as_p }}
     <button type="submit">Convert to Text</button>
   </form>
