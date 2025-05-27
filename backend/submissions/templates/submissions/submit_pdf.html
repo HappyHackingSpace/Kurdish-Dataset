@@ -14,10 +14,6 @@
   
   <form method="post" enctype="multipart/form-data">
     {% csrf_token %}
-    <div class="mb-3">
-      <label for="pdf_file" class="form-label">PDF File</label>
-      <input type="file" class="form-control" id="pdf_file" name="pdf_file" accept=".pdf" required>
-    </div>
     {{ form.as_p }}
     <button type="submit">Convert to Text</button>
   </form>
