@@ -49,3 +49,4 @@ whitenoise==6.6.0
 xxhash==3.5.0
 yarl==1.20.0
 PyPDF2==3.0.1
+psycopg2-binary==2.9.9
