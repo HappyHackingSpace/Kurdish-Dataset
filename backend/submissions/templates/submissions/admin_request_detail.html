@@ -1,0 +1,87 @@
+{% extends 'submissions/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8">
+            <h2>Review Submission</h2>
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Submission Details</h5>
+                </div>
+                <div class="card-body">
+                    <dl class="row">
+                        <dt class="col-sm-3">Name</dt>
+                        <dd class="col-sm-9">{{ submission.name }}</dd>
+                        
+                        <dt class="col-sm-3">Email</dt>
+                        <dd class="col-sm-9">{{ submission.email }}</dd>
+                        
+                        <dt class="col-sm-3">Subject</dt>
+                        <dd class="col-sm-9">{{ submission.subject }}</dd>
+                        
+                        <dt class="col-sm-3">Publication Date</dt>
+                        <dd class="col-sm-9">{{ submission.publication_date }}</dd>
+                        
+                        <dt class="col-sm-3">Author/Source</dt>
+                        <dd class="col-sm-9">{{ submission.author_source }}</dd>
+                        
+                        <dt class="col-sm-3">Text Type</dt>
+                        <dd class="col-sm-9">{{ submission.text_type }}</dd>
+                        
+                        <dt class="col-sm-3">Status</dt>
+                        <dd class="col-sm-9">
+                            <span class="badge {% if submission.status == 'pending' %}bg-warning{% elif submission.status == 'accepted' %}bg-success{% else %}bg-danger{% endif %}">
+                                {{ submission.status }}
+                            </span>
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Text Content</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="edited_text" class="form-label">Edited Text</label>
+                            <textarea class="form-control" id="edited_text" name="edited_text" rows="10">{{ submission.edited_text }}</textarea>
+                        </div>
+                        
+                        <div class="d-flex gap-2">
+                            <button type="submit" name="action" value="accept" class="btn btn-success">
+                                Accept
+                            </button>
+                            <button type="submit" name="action" value="reject" class="btn btn-danger">
+                                Reject
+                            </button>
+                            <a href="{% url 'submissions:admin_request_list' %}" class="btn btn-secondary">
+                                Back to List
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">PDF Preview</h5>
+                </div>
+                <div class="card-body">
+                    {% if submission.pdf_file_url %}
+                    <iframe src="{{ submission.pdf_file_url }}" width="100%" height="500px" class="border-0"></iframe>
+                    {% else %}
+                    <p class="text-muted">No PDF file available.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

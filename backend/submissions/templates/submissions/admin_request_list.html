@@ -1,0 +1,63 @@
+{% extends 'submissions/base.html' %}
+{% load submission_tags %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Admin Request List</h2>
+    
+    <ul class="nav nav-tabs mb-4">
+        <li class="nav-item">
+            <a class="nav-link {% if not status or status == 'pending' %}active{% endif %}" 
+               href="?status=pending">Pending</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if status == 'accepted' %}active{% endif %}" 
+               href="?status=accepted">Accepted</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if status == 'rejected' %}active{% endif %}" 
+               href="?status=rejected">Rejected</a>
+        </li>
+    </ul>
+
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Subject</th>
+                    <th>Type</th>
+                    <th>Date</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for submission in submissions|get_item:status %}
+                <tr>
+                    <td>{{ submission.name }}</td>
+                    <td>{{ submission.email }}</td>
+                    <td>{{ submission.subject }}</td>
+                    <td>{{ submission.text_type }}</td>
+                    <td>{{ submission.created_at|date:"Y-m-d H:i" }}</td>
+                    <td>
+                        <span class="badge {% if submission.status == 'pending' %}bg-warning{% elif submission.status == 'accepted' %}bg-success{% else %}bg-danger{% endif %}">
+                            {{ submission.status }}
+                        </span>
+                    </td>
+                    <td>
+                        <a href="{% url 'submissions:admin_request_detail' submission.id %}" 
+                           class="btn btn-sm btn-primary">Review</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center">No submissions found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
