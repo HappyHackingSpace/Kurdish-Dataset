@@ -14,7 +14,7 @@ charset-normalizer==3.4.2
 colorama==0.4.6
 cryptography==44.0.3
 dill==0.3.7
-Django==4.2.22
+Django==4.2.24
 dotenv==0.9.9
 filelock==3.18.0
 frozenlist==1.6.0
