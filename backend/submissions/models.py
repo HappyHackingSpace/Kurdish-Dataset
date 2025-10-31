@@ -1,11 +1,10 @@
 from django.db import models
-from django.utils import timezone
+from django.conf import settings
 from supabase import create_client
-#from django.conf import settings
-from dotenv import load_dotenv
-import os
+import logging
+from typing import Any, Dict, List, Optional
 
-load_dotenv()
+logger = logging.getLogger(__name__)
 
 class Submission(models.Model):
     STATUS_PENDING = 'pending'
@@ -76,67 +75,52 @@ class Submission(models.Model):
         ordering = ['-created_at']
 
 class SupabaseSubmission:
+    TABLE = 'submission_logs'
+
     def __init__(self):
-        self.supabase = create_client(
-            os.getenv("SUPABASE_URL"),
-            os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-        )
-        self.table = self.supabase.table('submission_logs')
+        self.supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
+        self.table = self.supabase.table(self.TABLE)
 
-    def create(self, data):
-        """
-        Create a new submission in Supabase
-        """
+    def create(self, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         try:
-            response = self.table.insert(data).execute()
-            return response.data[0] if response.data else None
+            payload = {"action": "create", **data}
+            res = self.table.insert(payload).execute()
+            return (res.data or [None])[0]
         except Exception as e:
-            print(f"Error creating submission: {str(e)}")
+            logger.exception("create failed: %s", e)
             return None
 
-    def get(self, submission_id):
-        """
-        Get a submission by ID
-        """
+    def get(self, submission_id: str) -> Optional[Dict[str, Any]]:
         try:
-            response = self.table.select("*").eq('id', submission_id).execute()
-            return response.data[0] if response.data else None
+            res = self.table.select("*").eq('id', submission_id).single().execute()
+            return res.data
         except Exception as e:
-            print(f"Error getting submission: {str(e)}")
+            logger.exception("get failed: %s", e)
             return None
 
-    def update(self, submission_id, data):
-        """
-        Update a submission
-        """
+    def update(self, submission_id: str, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         try:
-            response = self.table.update(data).eq('id', submission_id).execute()
-            return response.data[0] if response.data else None
+            payload = {"action": data.get("action", "update"), **{k:v for k,v in data.items() if k != "action"}}
+            res = self.table.update(payload).eq('id', submission_id).execute()
+            return (res.data or [None])[0]
         except Exception as e:
-            print(f"Error updating submission: {str(e)}")
+            logger.exception("update failed: %s", e)
             return None
 
-    def delete(self, submission_id):
-        """
-        Delete a submission
-        """
+    def delete(self, submission_id: str) -> bool:
         try:
-            response = self.table.delete().eq('id', submission_id).execute()
+            self.table.delete().eq('id', submission_id).execute()
             return True
         except Exception as e:
-            print(f"Error deleting submission: {str(e)}")
+            logger.exception("delete failed: %s", e)
             return False
 
-    def list(self, status=None):
-        """
-        List all submissions, optionally filtered by status
-        """
+    def list(self, status: Optional[str] = None) -> List[Dict[str, Any]]:
         try:
-            query = self.table.select("*")
+            q = self.table.select("*")
             if status:
-                query = query.eq('status', status)
-            response = query.execute()
-            return response.data
+                q = q.eq('status', status)
+            return q.order('created_at', desc=True).execute().data or []
         except Exception as e:
-            print(f"Error listing submissions: {str(e)}")
+            logger.exception("list failed: %s", e)
             return []

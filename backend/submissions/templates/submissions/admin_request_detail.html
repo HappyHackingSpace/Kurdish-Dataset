@@ -68,20 +68,6 @@
             </div>
         </div>
         
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">PDF Preview</h5>
-                </div>
-                <div class="card-body">
-                    {% if submission.pdf_file_url %}
-                    <iframe src="{{ submission.pdf_file_url }}" width="100%" height="500px" class="border-0"></iframe>
-                    {% else %}
-                    <p class="text-muted">No PDF file available.</p>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
     </div>
 </div>
 {% endblock %}

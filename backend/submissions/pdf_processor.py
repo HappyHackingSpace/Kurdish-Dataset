@@ -1,30 +1,21 @@
-import io
-import logging
+from __future__ import annotations
 from PyPDF2 import PdfReader
+from io import StringIO
+from pdfminer.high_level import extract_text_to_fp
 
-logger = logging.getLogger(__name__)
-
-def extract_text_from_pdf(pdf_content):
-    """
-    Extract text from PDF content in memory
-    Args:
-        pdf_content: PDF file content as bytes
-    Returns:
-        str: Extracted text from PDF
-    """
-    try:
-        # Create a BytesIO object from the PDF content
-        pdf_file = io.BytesIO(pdf_content)
-        
-        # Create PDF reader object
-        pdf_reader = PdfReader(pdf_file)
-        
-        # Extract text from all pages
-        text = ""
-        for page in pdf_reader.pages:
-            text += page.extract_text() + "\n"
-        
-        return text.strip()
-    except Exception as e:
-        logger.error(f"Error extracting text from PDF: {str(e)}")
-        raise 
+def extract_text_from_pdf(pdf_path: str) -> str:
+    text = ""
+    reader = PdfReader(pdf_path)
+    parts = []
+    for pg in reader.pages:
+        t = pg.extract_text() or ""
+        if t:
+            parts.append(t.strip())
+    text = "\n\n".join(parts)
+    
+    if text.strip():
+        return text
+    out = StringIO()
+    with open(pdf_path, "rb") as f:
+        extract_text_to_fp(f, out, laparams=None)
+    return out.getvalue().strip()
